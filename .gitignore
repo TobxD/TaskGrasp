@@ -3,3 +3,5 @@
 ./runs/
 ./data/
 ./checkpoints/
+./pointnet2/build/
+./pointnet2/dist/
