@@ -61,11 +61,11 @@ def main(cfg):
     exp_name = "{}_{}".format(cfg.name, get_timestamp())
     log_dir = os.path.join(cfg.log_dir, exp_name)
 
-    early_stop_callback = pl.callbacks.EarlyStopping(patience=cfg.patience)
+    early_stop_callback = pl.callbacks.EarlyStopping(monitor="class_mAP", mode="max", patience=cfg.patience)
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        monitor="val_acc",
+        monitor="class_mAP",
         mode="max",
-        save_top_k=20,
+        save_top_k=1,
         filepath=os.path.join(
             log_dir, 'weights', "best"
         ),

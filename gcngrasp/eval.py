@@ -153,10 +153,10 @@ def main(cfg, save=False, visualize=False, experiment_dir=None):
         map_location=DEVICE)['state_dict']
 
     # This is just for backward compatibility for a deprecated model:
-    if "class_embedding.weight" in model_weights:
-        del model_weights["class_embedding.weight"]
-    if "task_embedding.weight" in model_weights:
-        del model_weights["task_embedding.weight"]
+    # if "class_embedding.weight" in model_weights:
+    #     del model_weights["class_embedding.weight"]
+    # if "task_embedding.weight" in model_weights:
+    #     del model_weights["task_embedding.weight"]
 
     model.load_state_dict(model_weights)
     model = model.to(DEVICE)

@@ -326,7 +326,7 @@ class SemanticGraspNet(pl.LightningModule):
                 d_utils.PointcloudGraspRotatePerturbation(),
                 d_utils.PointcloudGraspTranslate(),
                 d_utils.PointcloudGraspJitter(),
-                d_utils.PointcloudGraspRandomInputDropout(),
+                #d_utils.PointcloudGraspRandomInputDropout(),
             ]
         )
 
@@ -399,7 +399,7 @@ class SemanticGraspNet(pl.LightningModule):
         elif self.cfg.dataset_class == 'SG14K':
             self.val_dset = SG14K(
                 self.cfg.num_points,
-                transforms=train_transforms,
+                #transforms=train_transforms,
                 train=2,
                 base_dir=self.cfg.base_dir,
                 folder_dir=self.cfg.folder_dir,
@@ -421,7 +421,7 @@ class SemanticGraspNet(pl.LightningModule):
             return DataLoader(
                 dset,
                 batch_size=self.cfg.batch_size,
-                num_workers=4,
+                num_workers=6,
                 pin_memory=True,
                 drop_last=mode == "train",
                 sampler=self._train_sampler
@@ -431,7 +431,7 @@ class SemanticGraspNet(pl.LightningModule):
                 dset,
                 batch_size=self.cfg.batch_size,
                 shuffle=mode == "train",
-                num_workers=4,
+                num_workers=6,
                 pin_memory=True,
                 drop_last=mode == "train"
             )

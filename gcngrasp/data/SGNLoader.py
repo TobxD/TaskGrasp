@@ -7,20 +7,25 @@ import os.path as osp
 import shlex
 import shutil
 import subprocess
+import argparse
 
 #import lmdb
 #import msgpack_numpy
 import numpy as np
 import torch
+from torchvision import transforms
 import torch.utils.data as data
 import tqdm
 from collections import defaultdict
 
 BASE_DIR = os.path.dirname(__file__)
 sys.path.append(os.path.join(BASE_DIR, '../../'))
+sys.path.append(os.path.join(BASE_DIR, '../'))
 from utils.splits import get_split_data, parse_line, get_ot_pairs_taskgrasp
 from visualize import draw_scene, get_gripper_control_points
 from geometry_utils import regularize_pc_point_count
+from data.data_specification import TASKS
+import data.data_utils as d_utils
 
 def pc_normalize(pc, grasp=None, pc_scaling=True):
     l = pc.shape[0]
@@ -54,6 +59,15 @@ def get_task1_hits(object_task_pairs, num_grasps=25):
             line = "{}-{}-{}:{}\n".format(obj, str(grasp_idx), task, label)
             lines.append(line)
     return lines
+
+def visualize_pc(object_pc, grasp_pc, label):
+    col = [0, 255, 0] if label==1 else [255, 0, 0]
+    grasp_color = torch.Tensor(col).double().repeat((grasp_pc.shape[0], 1))
+    all_pc = torch.cat(
+        [object_pc.double(), torch.cat([grasp_pc.double(), grasp_color.double()], dim=1)],
+        dim=0
+    )
+    draw_scene(pc=all_pc)
 
 
 class SGNTaskGrasp(data.Dataset):
@@ -137,7 +151,7 @@ class SGNTaskGrasp(data.Dataset):
 
         self._object_classes = class_list
 
-        self._num_object_classes = len(self._object_classes)
+        #self._num_object_classes = len(self._object_classes)
 
         start = time.time()
         correct_counter = 0
@@ -246,3 +260,84 @@ class SGNTaskGrasp(data.Dataset):
 
     def set_num_points(self, pts):
         self.num_points = min(int(1e4), pts)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="GCN training")
+    parser.add_argument('--base_dir', default='', type=str)
+    args = parser.parse_args()
+
+    if args.base_dir != '':
+        if not os.path.exists(args.base_dir):
+            raise FileNotFoundError(
+                'Provided base dir {} not found'.format(
+                    args.base_dir))
+    else:
+        args.base_dir = os.path.join(os.path.dirname(__file__), '../../data')
+
+    folder_dir = 'taskgrasp'
+    _, _, _, name2wn = pickle.load(
+        open(os.path.join(args.base_dir, folder_dir, 'misc.pkl'), 'rb'))
+
+    train_transforms = transforms.Compose(
+        [
+            d_utils.PointcloudGraspToTensor(),
+            d_utils.PointcloudGraspScale(),
+            d_utils.PointcloudGraspRotate(axis=np.array([1.0, 0.0, 0.0])),
+            d_utils.PointcloudGraspRotatePerturbation(),
+            d_utils.PointcloudGraspRotate(axis=np.array([0.0, 1.0, 0.0])),
+            d_utils.PointcloudGraspRotatePerturbation(),
+            d_utils.PointcloudGraspRotate(axis=np.array([0.0, 0.0, 1.0])),
+            d_utils.PointcloudGraspRotatePerturbation(),
+            d_utils.PointcloudGraspTranslate(),
+            d_utils.PointcloudGraspJitter(),
+            # d_utils.PointcloudGraspRandomInputDropout(),
+        ]
+    )
+
+    class_list = pickle.load(open(os.path.join(args.base_dir, 'class_list.pkl'),'rb'))
+    dset = SGNTaskGrasp(
+        4096,
+        transforms=train_transforms,
+        train=1,  # train
+        base_dir=args.base_dir,
+        folder_dir=folder_dir,
+        normal=False,
+        tasks=TASKS,
+        map_obj2class=name2wn,
+        class_list=class_list,
+        split_mode='o',
+        split_idx=0,
+        split_version=0,
+        pc_scaling=True,
+        use_task1_grasps=True
+    )
+
+    # TODO: enable weighted sampler to have equal number of positive/negative samples
+    """
+    weights = dset.weights
+    sampler = torch.utils.data.sampler.WeightedRandomSampler(
+        weights, len(weights))
+
+    dloader = torch.utils.data.DataLoader(
+        dset,
+        batch_size=16,
+        sampler=sampler)
+    """
+    dloader = torch.utils.data.DataLoader(
+        dset,
+        batch_size=1)
+
+    with torch.no_grad():
+        for batch in dloader:
+            fused_pc_xyz, pc_color, task_id, class_id, instance_id, grasp, label = batch
+
+            grasp_pc = fused_pc_xyz[:, -7:, :]
+            object_xyz = fused_pc_xyz[:, :-7, :]
+            grasp_pc = grasp_pc[:, :, :3]
+            object_xyz = object_xyz[:, :, :3]
+            object_pc = torch.cat([object_xyz.float(), pc_color.float()], dim=-1)
+
+            task_name = TASKS[task_id]
+            print(f"visualizing for task {task_name} ({task_id.numpy()[0]}) -> label {label.numpy()[0]}")
+            visualize_pc(object_pc[0], grasp_pc[0], label.numpy()[0])

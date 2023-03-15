@@ -393,7 +393,7 @@ class BaselineNet(pl.LightningModule):
         elif self.cfg.dataset_class == 'SGNTaskGrasp':
             self.train_dset = SGNTaskGrasp(
                 self.cfg.num_points,
-                # transforms=train_transforms,
+                #transforms=train_transforms,
                 train=1,
                 base_dir=self.cfg.base_dir,
                 folder_dir=self.cfg.folder_dir,
@@ -456,7 +456,7 @@ class BaselineNet(pl.LightningModule):
             return DataLoader(
                 dset,
                 batch_size=self.cfg.batch_size,
-                num_workers=4,
+                num_workers=6,
                 pin_memory=True,
                 drop_last=mode == "train",
                 sampler=self._train_sampler
@@ -466,7 +466,7 @@ class BaselineNet(pl.LightningModule):
                 dset,
                 batch_size=self.cfg.batch_size,
                 shuffle=mode == "train",
-                num_workers=4,
+                num_workers=6,
                 pin_memory=True,
                 drop_last=mode == "train"
             )
