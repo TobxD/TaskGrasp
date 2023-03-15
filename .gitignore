@@ -1,7 +1,7 @@
 *.png
 *.pyc
 ./runs/
-./data/
-./checkpoints/
-./pointnet2/build/
-./pointnet2/dist/
+/data
+/checkpoints
+/pointnet2/build
+/pointnet2/dist
