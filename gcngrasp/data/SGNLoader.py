@@ -1,22 +1,12 @@
 import os
-import copy
 import sys
-import pickle
 import time
-import os.path as osp
-import shlex
-import shutil
-import subprocess
 import argparse
-
-#import lmdb
-#import msgpack_numpy
 import numpy as np
 import torch
 from torchvision import transforms
 import torch.utils.data as data
 import tqdm
-from collections import defaultdict
 
 BASE_DIR = os.path.dirname(__file__)
 sys.path.append(os.path.join(BASE_DIR, '../../'))
@@ -27,8 +17,8 @@ from geometry_utils import regularize_pc_point_count
 from data.data_specification import TASKS
 import data.data_utils as d_utils
 
+
 def pc_normalize(pc, grasp=None, pc_scaling=True):
-    l = pc.shape[0]
     centroid = np.mean(pc, axis=0)
     pc = pc - centroid
     if grasp is not None:
