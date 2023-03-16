@@ -12,15 +12,14 @@ BASE_DIR = os.path.dirname(__file__)
 sys.path.append(os.path.join(BASE_DIR, '../'))
 from visualize import mkdir
 
-def get_results_dir(log_dir, results_dir):
+def get_results_dir(log_dir, results_dir, dataset_name):
     dirs = os.listdir(log_dir)
     dirs = list(sorted(dirs))
     dirs.reverse()
     for dir in dirs:
         if dir.find(results_dir) >= 0:
-            nested_dirs = os.listdir(os.path.join(log_dir, dir))
-            if "results" in nested_dirs:
-                return dir
+            if os.path.isdir(os.path.join(log_dir, dir, dataset_name, 'results')):
+                return os.path.join(dir, dataset_name)
     raise FileNotFoundError('Unable to find appropriate folder for experiment {}'.format(results_dir))
 
 def adjust_axes(r, t, fig, axes):
@@ -132,10 +131,14 @@ def draw_plot(dictionary, dictionary_random, n_elems, window_title, plot_title, 
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="GCN training")
+    parser = argparse.ArgumentParser(description="Plotting results")
     parser.add_argument('--base_dir', default='', help='Location of dataset', type=str)
     parser.add_argument('--log_dir', default='', help='Location of pretrained checkpoint models', type=str)
     parser.add_argument('--save_dir', default='', type=str)
+    parser.add_argument('--dataset_name', default='test', choices=['train', 'val', 'test'], type=str)
+    parser.add_argument('--split_mode', default="o", type=str)
+    parser.add_argument('--model', default="baseline", type=str)
+    parser.add_argument('--name_prefix', required=True, type=str, help='prefix of the checkpoints folder')
     args = parser.parse_args()
 
     if args.base_dir != '':
@@ -188,16 +191,16 @@ if __name__ == '__main__':
     # }
     # exp_name = 'baseline_o'
 
-    exp_title = 'Held-out Objects SGN'
+    exp_title = f'evaluation of {args.name_prefix} on {args.dataset_name} dataset, split mode {args.split_mode} of {args.model}'
     data = {
-        "0":"sgn_o_0",
-        "1":"sgn_o_1",
-        "2":"sgn_o_2",
-        "3":"sgn_o_3"
+        f"{i}":f"{args.name_prefix}_{args.model}_{args.split_mode}_{i}"
+        for i in range(4)
     }
-    exp_name = 'sgn_o'
+    exp_name = f'{args.name_prefix}_{args.model}_{args.split_mode}'
     
     args.save_dir = os.path.join(args.save_dir, exp_name)
+    mkdir(args.save_dir)
+    args.save_dir = os.path.join(args.save_dir, args.dataset_name)
     mkdir(args.save_dir)
 
     merged_task_ap = {}
@@ -218,8 +221,8 @@ if __name__ == '__main__':
     plot_color = 'royalblue'
 
     for split_idx, split_dir in data.items():
-        pkl_file = get_results_dir(args.log_dir, split_dir)
-        print('Loading {} results from {}'.format(split_idx, pkl_file))
+        pkl_file = get_results_dir(args.log_dir, split_dir, args.dataset_name)
+        print('Loading split idx {} results from {}'.format(split_idx, pkl_file))
         pkl_file = os.path.join(args.log_dir, pkl_file, 'results2_ap', 'results.pkl')
         results = pickle.load(open(pkl_file, 'rb'))
 

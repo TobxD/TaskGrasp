@@ -5,3 +5,6 @@
 /checkpoints
 /pointnet2/build
 /pointnet2/dist
+/.vscode
+/wandb
+/slurm_logs

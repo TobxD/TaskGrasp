@@ -51,8 +51,14 @@ def load_cfg(args):
     if args.batch_size > -1:
         cfg.batch_size = args.batch_size
 
-    cfg.split_idx = args.split_idx
-    cfg.split_mode = args.split_mode
+    if args.name is not None:
+        cfg.name = args.name
+    if args.split_idx is not None:
+        cfg.split_idx = args.split_idx
+    if args.split_mode is not None:
+        cfg.split_mode = args.split_mode
+    if (args.split_idx is not None or args.split_mode is not None) and args.name is None:
+        raise ValueError("please specify name with --name if split_idx or split_mode specified to reflect the split in the name")
 
     cfg.freeze()
     return cfg
@@ -110,7 +116,7 @@ def train(cfg, args):
 
     wandb_logger = WandbLogger(
         project="analogical_grasping",
-        name=args.run_name,
+        name=cfg.name,
     )
     wandb_logger.experiment.config.update(dict(cfg))
 
@@ -135,9 +141,9 @@ if __name__ == "__main__":
         type=str)
     parser.add_argument('--gpus', nargs='+', default=-1, type=int)
     parser.add_argument('--batch_size', default=-1, type=int)
-    parser.add_argument('--run_name', default="run", type=str)
-    parser.add_argument('--split_idx', default=0, type=int)
-    parser.add_argument('--split_mode', default="o", type=str)
+    parser.add_argument('--name', default=None, type=str)
+    parser.add_argument('--split_idx', default=None, type=int)
+    parser.add_argument('--split_mode', default=None, type=str)
     args = parser.parse_args()
 
     cfg = load_cfg(args)

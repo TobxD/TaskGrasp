@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from copy import deepcopy
 import pickle
 #import omegaconf
 import pytorch_lightning as pl
@@ -49,7 +50,79 @@ def visualize_batch_wrong(pc, grasps, labels, preds):
             grasp = grasps[i, :, :]
             draw_scene(pcc, [grasp, ])
 
-def main(cfg, save=False, visualize=False, experiment_dir=None):
+def get_dataset(dataset_name, cfg, model, class_list, name2wn):
+    if dataset_name == "train":
+        model.prepare_data()
+        return model.train_dset
+    elif dataset_name == "val":
+        model.prepare_data()
+        return model.val_dset
+    elif dataset_name == "test":
+        if cfg.dataset_class == 'SGNTaskGrasp':
+            dset = SGNTaskGrasp(
+                cfg.num_points,
+                transforms=None,
+                train=0,
+                base_dir=cfg.base_dir,
+                folder_dir=cfg.folder_dir,
+                normal=cfg.model.use_normal,
+                tasks=TASKS,
+                map_obj2class=name2wn,
+                class_list=class_list,
+                split_mode=cfg.split_mode,
+                split_idx=cfg.split_idx,
+                split_version=cfg.split_version,
+                pc_scaling=cfg.pc_scaling,
+                use_task1_grasps=cfg.use_task1_grasps
+            )
+        elif cfg.dataset_class == 'GCNTaskGrasp':
+            dset = GCNTaskGrasp(
+                cfg.num_points,
+                transforms=None,
+                train=0,
+                base_dir=cfg.base_dir,
+                folder_dir=cfg.folder_dir,
+                normal=cfg.model.use_normal,
+                tasks=TASKS,
+                map_obj2class=name2wn,
+                class_list=class_list,
+                split_mode=cfg.split_mode,
+                split_idx=cfg.split_idx,
+                split_version=cfg.split_version,
+                pc_scaling=cfg.pc_scaling,
+                use_task1_grasps=cfg.use_task1_grasps,
+                graph_data_path=cfg.graph_data_path,
+                include_reverse_relations=cfg.include_reverse_relations,
+                subgraph_sampling=cfg.subgraph_sampling,
+                sampling_radius=cfg.sampling_radius,
+                instance_agnostic_mode=cfg.instance_agnostic_mode
+            )
+        elif cfg.dataset_class == 'SG14K':
+            dset = SG14K(
+                cfg.num_points,
+                transforms=None,
+                train=0,
+                base_dir=cfg.base_dir,
+                folder_dir=cfg.folder_dir,
+                normal=cfg.model.use_normal,
+                tasks=TASKS,
+                map_obj2class=name2wn,
+                class_list=class_list,
+                split_mode=cfg.split_mode,
+                split_idx=cfg.split_idx,
+                split_version=cfg.split_version,
+                pc_scaling=cfg.pc_scaling,
+                use_task1_grasps=cfg.use_task1_grasps
+            )
+        else:
+            raise ValueError(f"{cfg.dataset_class} dataloader not supported")
+        return dset
+    else:
+        raise ValueError(f"Invalid dataset name {dataset_name}")
+
+def main(cfg, save=False, visualize=False, experiment_dir=None, dataset_name="test"):
+    experiment_dir = os.path.join(experiment_dir, dataset_name)
+    mkdir(experiment_dir)
 
     _, _, _, name2wn = pickle.load(
         open(os.path.join(cfg.base_dir, cfg.folder_dir, 'misc.pkl'), 'rb'))
@@ -61,82 +134,6 @@ def main(cfg, save=False, visualize=False, experiment_dir=None):
             'rb')) if cfg.use_class_list else list(
         name2wn.values())
 
-    if cfg.dataset_class == 'SGNTaskGrasp':
-        dset = SGNTaskGrasp(
-            cfg.num_points,
-            transforms=None,
-            train=0,
-            base_dir=cfg.base_dir,
-            folder_dir=cfg.folder_dir,
-            normal=cfg.model.use_normal,
-            tasks=TASKS,
-            map_obj2class=name2wn,
-            class_list=class_list,
-            split_mode=cfg.split_mode,
-            split_idx=cfg.split_idx,
-            split_version=cfg.split_version,
-            pc_scaling=cfg.pc_scaling,
-            use_task1_grasps=cfg.use_task1_grasps
-        )
-    elif cfg.dataset_class == 'GCNTaskGrasp':
-        dset = GCNTaskGrasp(
-            cfg.num_points,
-            transforms=None,
-            train=0,
-            base_dir=cfg.base_dir,
-            folder_dir=cfg.folder_dir,
-            normal=cfg.model.use_normal,
-            tasks=TASKS,
-            map_obj2class=name2wn,
-            class_list=class_list,
-            split_mode=cfg.split_mode,
-            split_idx=cfg.split_idx,
-            split_version=cfg.split_version,
-            pc_scaling=cfg.pc_scaling,
-            use_task1_grasps=cfg.use_task1_grasps,
-            graph_data_path=cfg.graph_data_path,
-            include_reverse_relations=cfg.include_reverse_relations,
-            subgraph_sampling=cfg.subgraph_sampling,
-            sampling_radius=cfg.sampling_radius,
-            instance_agnostic_mode=cfg.instance_agnostic_mode
-        )
-    elif cfg.dataset_class == 'SG14K':
-        dset = SG14K(
-            cfg.num_points,
-            transforms=None,
-            train=0,
-            base_dir=cfg.base_dir,
-            folder_dir=cfg.folder_dir,
-            normal=cfg.model.use_normal,
-            tasks=TASKS,
-            map_obj2class=name2wn,
-            class_list=class_list,
-            split_mode=cfg.split_mode,
-            split_idx=cfg.split_idx,
-            split_version=cfg.split_version,
-            pc_scaling=cfg.pc_scaling,
-            use_task1_grasps=cfg.use_task1_grasps
-        )
-    elif cfg.dataset_class == 'BaselineData':
-        dset = BaselineData(
-            cfg.num_points,
-            transforms=None,
-            train=0,
-            base_dir=cfg.base_dir,
-            folder_dir=cfg.folder_dir,
-            normal=cfg.model.use_normal,
-            tasks=TASKS,
-            map_obj2class=name2wn,
-            class_list=class_list,
-            split_mode=cfg.split_mode,
-            split_idx=cfg.split_idx,
-            split_version=cfg.split_version,
-            pc_scaling=cfg.pc_scaling,
-            use_task1_grasps=cfg.use_task1_grasps,
-            graph_data_path=cfg.graph_data_path,
-            include_reverse_relations=cfg.include_reverse_relations
-        )
-
     if cfg.algorithm_class == 'SemanticGraspNet':
         model = SemanticGraspNet(cfg)
     elif cfg.algorithm_class == 'GCNGrasp':
@@ -147,16 +144,12 @@ def main(cfg, save=False, visualize=False, experiment_dir=None):
     else:
         raise ValueError('Unknown class name {}'.format(cfg.algorithm_class))
 
+    dset = get_dataset(dataset_name, cfg, model, class_list, name2wn)
+
     assert model._class_list == class_list
     model_weights = torch.load(
         cfg.weight_file,
         map_location=DEVICE)['state_dict']
-
-    # This is just for backward compatibility for a deprecated model:
-    # if "class_embedding.weight" in model_weights:
-    #     del model_weights["class_embedding.weight"]
-    # if "task_embedding.weight" in model_weights:
-    #     del model_weights["task_embedding.weight"]
 
     model.load_state_dict(model_weights)
     model = model.to(DEVICE)
@@ -167,10 +160,11 @@ def main(cfg, save=False, visualize=False, experiment_dir=None):
             dset,
             batch_size=cfg.batch_size,
             shuffle=False,
-            collate_fn=GCNTaskGrasp.collate_fn)
+            collate_fn=GCNTaskGrasp.collate_fn,
+            num_workers=8)
     else:
         dloader = torch.utils.data.DataLoader(
-            dset, batch_size=cfg.batch_size, shuffle=False)
+            dset, batch_size=cfg.batch_size, shuffle=False, num_workers=8)
 
     all_preds = []
     all_probs = []
@@ -211,9 +205,12 @@ def main(cfg, save=False, visualize=False, experiment_dir=None):
     all_probs_1 = []
     all_labels_1 = []
 
-    print('Running evaluation on Test set')
+    print(f'Running evaluation on {dataset_name} set')
     with torch.no_grad():
         for batch in tqdm(dloader):
+            # batch_copy = deepcopy(batch)
+            # del batch
+            # batch = batch_copy
 
             if cfg.algorithm_class == 'SemanticGraspNet':
                 pc, pc_color, tasks, classes, instances, grasps, labels = batch
@@ -512,6 +509,8 @@ def main(cfg, save=False, visualize=False, experiment_dir=None):
 
 
 if __name__ == "__main__":
+    torch.multiprocessing.set_sharing_strategy('file_system')
+
     parser = argparse.ArgumentParser(description="GCN training")
     parser.add_argument(
         'cfg_file',
@@ -522,6 +521,10 @@ if __name__ == "__main__":
     parser.add_argument('--visualize', action='store_true', default=False)
     parser.add_argument('--gpus', nargs='+', default=-1, type=int)
     parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--dataset_name', default='test', choices=['train', 'val', 'test'], type=str)
+    parser.add_argument('--split_idx', default=None, type=int)
+    parser.add_argument('--split_mode', default=None, type=str)
+    parser.add_argument('--weight_file', required=True, type=str)
 
     args = parser.parse_args()
 
@@ -540,6 +543,12 @@ if __name__ == "__main__":
         assert cfg.base_dir == ''
         cfg.base_dir = os.path.join(os.path.dirname(__file__), '../data')
 
+    if args.split_idx is not None:
+        cfg.split_idx = args.split_idx
+    if args.split_mode is not None:
+        cfg.split_mode = args.split_mode
+    cfg.weight_file = args.weight_file
+
     cfg.batch_size = args.batch_size
     if args.gpus == -1:
         args.gpus = [0, ]
@@ -554,10 +563,14 @@ if __name__ == "__main__":
     print("using", weight_files[-1])
     cfg.weight_file = os.path.join(experiment_dir, 'weights', weight_files[-1])
 
+    # No data aug for evaluation
+    cfg.data_augmentations = 0
+
     cfg.freeze()
     print(cfg)
     main(
         cfg,
         save=args.save,
         visualize=args.visualize,
-        experiment_dir=experiment_dir)
+        experiment_dir=experiment_dir,
+        dataset_name=args.dataset_name)

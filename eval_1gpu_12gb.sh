@@ -9,4 +9,4 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=50gb
 
-python gcngrasp/train.py "$@"
+python gcngrasp/eval.py "$@"
